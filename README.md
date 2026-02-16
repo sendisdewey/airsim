@@ -2,6 +2,11 @@
 
 Top-down military flight simulator. Buy planes, destroy tanks and AA, earn money, and survive.
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![C++](https://img.shields.io/badge/C++-17-blue.svg?style=flat&logo=c%2B%2B)](https://isocpp.org/)
+[![Qt](https://img.shields.io/badge/Qt-5-green.svg?style=flat&logo=qt)](https://www.qt.io/)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-lightgrey)](https://github.com/sendisdewey/airsim)
+
 ---
 
 ## FEATURES
