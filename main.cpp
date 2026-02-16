@@ -68,7 +68,7 @@ struct Rocket {
     float x, y;
     float vx, vy;
     int timer;
-    Target *target;  // цель, в которую летит
+    Target *target;
 };
 
 // структура самолёта в магазине
@@ -138,10 +138,10 @@ public:
             qDebug() << "ПВО загружено!";
         }
 
-        // 🌳 загрузка спрайта дерева
+        // загрузка спрайта дерева
         treeSprite.load("tree.png");
         if (!treeSprite.isNull()) {
-            treeSprite = treeSprite.scaled(70, 70, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            treeSprite = treeSprite.scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             qDebug() << "дерево загружено!";
         }
 
@@ -168,7 +168,7 @@ public:
             targets.append(Target(x, y, (rand() % 2 == 0) ? 0 : 2));
         }
 
-        // 🌳 генерация деревьев
+        // генерация деревьев
         for (int i = 0; i < 1000; i++) {
             float x = 1000 + rand() % 14000;
             float y = 1000 + rand() % 14000;
@@ -258,7 +258,7 @@ protected:
         }
         painter.setOpacity(1.0);
 
-        // 🌳 деревья (спрайты)
+        // деревья (спрайты)
         if (!treeSprite.isNull()) {
             for (const QPointF &tree : trees) {
                 painter.save();
@@ -507,7 +507,7 @@ protected:
             float dy = t.y - posY;
 
             float dist = sqrt(dx*dx + dy*dy);
-            if (dist < 4000) {  // увеличиваем дальность радара
+            if (dist < 4000) {
                 float radarX = (dx / 4000) * 50;
                 float radarY = (dy / 4000) * 50;
 
@@ -660,7 +660,6 @@ protected:
             money -= 10;
             saveMoney();
 
-            // 🚀 считаем направление самолёта
             float rad = angle * M_PI / 180.0f;
 
             // ищем ближайшую цель
@@ -682,7 +681,7 @@ protected:
                 r.x = posX + cos(rad) * 50;
                 r.y = posY + sin(rad) * 50;
 
-                // начальная скорость - В СТОРОНУ ЦЕЛИ, а не прямо
+                // начальная скорость - в сторону цели
                 float dx = nearest->x - r.x;
                 float dy = nearest->y - r.y;
                 float dist = sqrt(dx*dx + dy*dy);
@@ -767,7 +766,7 @@ private slots:
 
         // стрельба
         if (shooting) {
-            if (frameCounter++ % 4 == 0) {  // каждые 4 кадра
+            if (frameCounter++ % 4 == 0) {
                 Bullet b;
                 float rad = angle * M_PI / 180.0f;
                 float noseOffset = 45.0f;
@@ -902,7 +901,7 @@ private slots:
                 float dy = r.target->y - r.y;
                 float dist = sqrt(dx*dx + dy*dy);
 
-                if (dist < 15) {  // попадание
+                if (dist < 15) {
                     r.target->hp -= 5;
                     hitMarkers.append({r.target->x, r.target->y, 15});
 
@@ -920,7 +919,7 @@ private slots:
                 float targetVx = (dx / dist) * speed;
                 float targetVy = (dy / dist) * speed;
 
-                // инерция (плавный поворот)
+                // инерция
                 r.vx = r.vx * 0.95f + targetVx * 0.05f;
                 r.vy = r.vy * 0.95f + targetVy * 0.05f;
             }
@@ -987,9 +986,9 @@ private:
     QList<QPointF> trail;
     QPixmap planeSprite;
     QPixmap tankSprite;
-    QPixmap rocketSprite;  // спрайт ракеты
+    QPixmap rocketSprite;
     QPixmap pvoSprite;
-    QPixmap treeSprite;      // 🌳 спрайт дерева
+    QPixmap treeSprite;
     QPixmap grassTexture;
     QVector<Target> targets;
     QVector<Rocket> rockets;
@@ -999,7 +998,7 @@ private:
     QVector<Cloud> clouds;
     QVector<PlaneSkin> skins;
     QVector<GrassBlade> grass;
-    QVector<QPointF> trees;  // 🌳 координаты деревьев
+    QVector<QPointF> trees;
     Airfield airfield;
 
     bool shooting;
