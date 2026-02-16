@@ -112,8 +112,20 @@ public:
         // загрузка базового самолёта
         planeSprite.load("plane.png");
         if (!planeSprite.isNull()) {
-            planeSprite = planeSprite.scaled(80, 70, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            planeSprite = planeSprite.scaled(75, 75, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             qDebug() << "самолёт загружен!";
+        }
+
+        su34Sprite.load("plane2.png");
+        if (!su34Sprite.isNull()) {
+            su34Sprite = su34Sprite.scaled(95, 95, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            qDebug() << "СУ-34 загружен с размером 90x90!";
+        }
+
+        su57Sprite.load("plane3.png");
+        if (!su57Sprite.isNull()) {
+            su57Sprite = su57Sprite.scaled(90, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            qDebug() << "СУ-57 загружен (90x90)!";
         }
 
         // загрузка текстуры травы
@@ -380,8 +392,18 @@ protected:
         painter.save();
         painter.translate(posX, posY);
         painter.rotate(angle + 90);
-        QPointF center(planeSprite.width() / 2.0, planeSprite.height() / 2.0);
-        painter.drawPixmap(-center, planeSprite);
+
+        QPixmap *currentSprite = &planeSprite;  // по умолчанию СУ-27
+
+        if (currentPlane == 2 && !su34Sprite.isNull()) {
+            currentSprite = &su34Sprite;    // СУ-34 (большой)
+        }
+        else if (currentPlane == 3 && !su57Sprite.isNull()) {
+            currentSprite = &su57Sprite;    // СУ-57 (большой)
+        }
+
+        QPointF center(currentSprite->width() / 2.0, currentSprite->height() / 2.0);
+        painter.drawPixmap(-center, *currentSprite);
         painter.restore();
 
         // огонь из пулемёта
@@ -985,6 +1007,8 @@ private:
     int selectedSkin, currentPlane;
     QList<QPointF> trail;
     QPixmap planeSprite;
+    QPixmap su34Sprite;
+    QPixmap su57Sprite;
     QPixmap tankSprite;
     QPixmap rocketSprite;
     QPixmap pvoSprite;
