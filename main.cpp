@@ -10,54 +10,35 @@
 #include <QFile>
 #include <QTextStream>
 #include <QFont>
-#include <QDebug>
 #include <QDir>
 
-// структура цели
+// === СТРУКТУРЫ ДАННЫХ ===
 struct Target {
     float x, y;
     bool alive;
-    int type;  // 0 - танк, 2 - пво
+    int type;  // 0 - танк, 2 - зенитное оружие
     int hp;
     float angle;
 
     Target(float x_, float y_, int t) : x(x_), y(y_), alive(true), type(t), hp(3), angle(0) {}
 };
 
-// структура попадания
 struct HitMarker {
     float x, y;
     int timer;
 };
 
-// структура пули пво
-struct PvoBullet {
+struct AABullet {
     float x, y;
     float vx, vy;
     int timer;
 };
 
-// структура пули пулемёта
-struct Bullet {
-    float x, y;
-    float vx, vy;
-    int timer;
-};
-
-// структура облака
-struct Cloud {
-    float x, y;
-    float speed;
-    int size;
-};
-
-// структура аэродрома
 struct Airfield {
     float x, y;
     Airfield(float x_, float y_) : x(x_), y(y_) {}
 };
 
-// структура травинки
 struct GrassBlade {
     int x, y;
     int length;
@@ -68,26 +49,48 @@ struct Rocket {
     float x, y;
     float vx, vy;
     int timer;
-    Target *target;  // цель, в которую летит
+    Target *target;
 };
 
-// структура самолёта в магазине
+// структура вражеской ракеты
+struct EnemyRocket {
+    float x, y;
+    float vx, vy;
+    int timer;
+};
+
+// ✈️ СТРУКТУРА ВРАЖЕСКИХ САМОЛЁТОВ
+struct EnemyPlane {
+    float x, y;
+    float vx, vy;
+    float angle;
+    int hp;
+    int type;  // 0 - МиГ-29, 1 - F-16
+    bool alive;
+    int shootTimer;
+
+    EnemyPlane(float x_, float y_, int t)
+        : x(x_), y(y_), vx(0), vy(0), angle(0), hp(3), type(t), alive(true), shootTimer(0) {}
+};
+
 struct PlaneSkin {
     QString name;
     int price;
     int speedBonus;
     int armorBonus;
     int bombBonus;
+    float turnSpeed;
     bool owned;
     QString spriteFile;
 };
 
+// === ОСНОВНОЙ КЛАСС ИГРЫ ===
 class AirplaneGame : public QWidget
 {
 public:
     AirplaneGame(QWidget *parent = nullptr)
         : QWidget(parent),
-          posX(8000), posY(8000),
+          posX(7850), posY(8010),
           velocity(0, 0),
           angle(0),
           thrust(0),
@@ -102,106 +105,114 @@ public:
           airfield(8000, 8000),
           shopOpen(false),
           selectedSkin(0),
-          currentPlane(0),
-          shooting(false),
-          frameCounter(0)
+          currentPlane(0)
     {
         setFixedSize(1920, 900);
-        setWindowTitle("авиасимулятор");
+        setWindowTitle("airsim");
 
-        // загрузка базового самолёта
-        planeSprite.load("plane.png");
-        if (!planeSprite.isNull()) {
-            planeSprite = planeSprite.scaled(80, 70, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            qDebug() << "самолёт загружен!";
+        // === ЗАГРУЗКА СПРАЙТОВ ===
+        su27Sprite.load("plane.png");
+        if (!su27Sprite.isNull()) {
+            su27Sprite = su27Sprite.scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
-        // загрузка текстуры травы
+        su30Sprite.load("plane1.png");
+        if (!su30Sprite.isNull()) {
+            su30Sprite = su30Sprite.scaled(85, 85, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
+        su25Sprite.load("plane4.png");
+        if (!su25Sprite.isNull()) {
+            su25Sprite = su25Sprite.scaled(85, 85, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
+        su34Sprite.load("plane2.png");
+        if (!su34Sprite.isNull()) {
+            su34Sprite = su34Sprite.scaled(130, 130, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
+        su57Sprite.load("plane3.png");
+        if (!su57Sprite.isNull()) {
+            su57Sprite = su57Sprite.scaled(90, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
+        // ЗАГРУЗКА ВРАЖЕСКИХ СПРАЙТОВ
+        enemyMigSprite.load("EF.png");
+        if (!enemyMigSprite.isNull()) {
+            enemyMigSprite = enemyMigSprite.scaled(95, 95, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
+        enemyF16Sprite.load("f14.png");
+        if (!enemyF16Sprite.isNull()) {
+            enemyF16Sprite = enemyF16Sprite.scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
         grassTexture.load("grass_texture.png");
         if (!grassTexture.isNull()) {
             grassTexture = grassTexture.scaled(128, 128, Qt::KeepAspectRatio);
-            qDebug() << "текстура травы загружена!";
-        } else {
-            qDebug() << "текстура травы не загружена, будет рисованная";
         }
 
-        // загрузка спрайтов танка и пво
+        asphaltTexture.load("asphalt.png");
+        if (!asphaltTexture.isNull()) {
+            asphaltTexture = asphaltTexture.scaled(128, 128, Qt::KeepAspectRatio);
+        }
+
         tankSprite.load("tank.png");
         if (!tankSprite.isNull()) {
             tankSprite = tankSprite.scaled(50, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            qDebug() << "танк загружен!";
         }
 
-        pvoSprite.load("pvo.png");
-        if (!pvoSprite.isNull()) {
-            pvoSprite = pvoSprite.scaled(50, 50, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            qDebug() << "ПВО загружено!";
+        AASprite.load("AA.png");
+        if (!AASprite.isNull()) {
+            AASprite = AASprite.scaled(50, 50, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
-        // 🌳 загрузка спрайта дерева
         treeSprite.load("tree.png");
         if (!treeSprite.isNull()) {
-            treeSprite = treeSprite.scaled(70, 70, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            qDebug() << "дерево загружено!";
+            treeSprite = treeSprite.scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
-        // загрузка спрайта ракеты
         rocketSprite.load("rocket.png");
         if (!rocketSprite.isNull()) {
             rocketSprite = rocketSprite.scaled(40, 30, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            qDebug() << "ракета загружена!";
         }
 
-        // самолёты в магазине
-        skins.append({"СУ-27", 0, 0, 0, 0, true, "plane.png"});
-        skins.append({"СУ-30", 2000, 2, 10, 0, false, "plane1.png"});
-        skins.append({"СУ-34", 3000, 3, 15, 40, false, "plane2.png"});
-        skins.append({"СУ-57", 5000, 5, 20, 60, false, "plane3.png"});
+        // === НАСТРОЙКА МАГАЗИНА ===
+        skins.append({"СУ-27", 0, 2, 0, 0, 3.0f, true, "plane.png"});
+        skins.append({"СУ-30", 2000, 3, 10, 0, 3.0f, false, "plane1.png"});
+        skins.append({"СУ-34", 3000, 3, 15, 40, 2.5f, false, "plane2.png"});
+        skins.append({"СУ-25", 3500, 2, 25, 50, 2.0f, false, "plane4.png"});
+        skins.append({"СУ-57", 5000, 5, 20, 60, 4.0f, false, "plane3.png"});
 
-        // загрузка денег
         loadMoney();
+        loadHangar();
 
-        // стартовые цели
+        // === ГЕНЕРАЦИЯ МИРА ===
         for (int i = 0; i < 20; i++) {
             float x = 2000 + rand() % 12000;
             float y = 2000 + rand() % 12000;
             targets.append(Target(x, y, (rand() % 2 == 0) ? 0 : 2));
         }
 
-        // 🌳 генерация деревьев
+        // ГЕНЕРАЦИЯ ВРАЖЕСКИХ САМОЛЁТОВ (БЫСТРЕЕ)
+        for (int i = 0; i < 15; i++) {
+            float x = 3000 + rand() % 10000;
+            float y = 3000 + rand() % 10000;
+            enemies.append(EnemyPlane(x, y, rand() % 2));
+        }
+
         for (int i = 0; i < 1000; i++) {
             float x = 1000 + rand() % 14000;
             float y = 1000 + rand() % 14000;
             trees.append(QPointF(x, y));
         }
 
-        // облака
-        for (int i = 0; i < 16; i++) {
-            Cloud c;
-            c.x = rand() % 16000;
-            c.y = rand() % 16000;
-            c.speed = 0.5 + rand() % 10 / 10.0;
-            c.size = 30 + rand() % 50;
-            clouds.append(c);
-        }
-
-        // генерация травы
-        for (int i = 0; i < 4000; i++) {
-            GrassBlade g;
-            g.x = rand() % 16000;
-            g.y = rand() % 16000;
-            g.length = 8 + rand() % 15;
-            g.angle = (rand() % 50) - 25;
-            grass.append(g);
-        }
-
-        // таймер игры
+        // === ТАЙМЕРЫ ===
         QTimer *timer = new QTimer(this);
         connect(timer, &QTimer::timeout, [this]() { updateGame(); });
         connect(timer, &QTimer::timeout, this, QOverload<>::of(&AirplaneGame::update));
         timer->start(20);
 
-        // таймер мигания
         QTimer *blinkTimer = new QTimer(this);
         connect(blinkTimer, &QTimer::timeout, [this]() { blink = !blink; });
         blinkTimer->start(500);
@@ -209,7 +220,36 @@ public:
         setFocusPolicy(Qt::StrongFocus);
     }
 
+    // === СОХРАНЕНИЕ АНГАРА ===
+    void saveHangar() {
+        QFile file("hangar.txt");
+        if (file.open(QIODevice::WriteOnly)) {
+            QTextStream out(&file);
+            for (int i = 0; i < skins.size(); i++) {
+                out << (skins[i].owned ? 1 : 0) << " ";
+            }
+            out << "\n" << currentPlane;
+            file.close();
+        }
+    }
+
+    // === ЗАГРУЗКА АНГАРА ===
+    void loadHangar() {
+        QFile file("hangar.txt");
+        if (file.open(QIODevice::ReadOnly)) {
+            QTextStream in(&file);
+            for (int i = 0; i < skins.size(); i++) {
+                int owned;
+                in >> owned;
+                skins[i].owned = (owned == 1);
+            }
+            in >> currentPlane;
+            file.close();
+        }
+    }
+
 protected:
+    // === ОТРИСОВКА ===
     void paintEvent(QPaintEvent *) override {
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
@@ -223,42 +263,14 @@ protected:
         if (camY > 16000 - height()) camY = 16000 - height();
         painter.translate(-camX, -camY);
 
-        // фон с текстурой травы
+        // фон
         if (!grassTexture.isNull()) {
             painter.setBrush(QBrush(grassTexture));
             painter.setPen(Qt::NoPen);
             painter.drawRect(0, 0, 16000, 16000);
-        } else {
-            painter.fillRect(0, 0, 16000, 16000, QColor(34, 139, 34));
-
-            painter.setPen(QPen(QColor(20, 120, 20, 200), 2));
-            for (const GrassBlade &g : grass) {
-                float rad = g.angle * M_PI / 180;
-                int x2 = g.x + cos(rad) * g.length;
-                int y2 = g.y - sin(rad) * g.length;
-                painter.drawLine(g.x, g.y, x2, y2);
-            }
-
-            painter.setPen(QPen(QColor(60, 180, 60, 150), 1));
-            for (int i = 0; i < 2000; i++) {
-                const GrassBlade &g = grass[i + 2000];
-                float rad = g.angle * M_PI / 180;
-                int x2 = g.x + cos(rad) * g.length * 0.7;
-                int y2 = g.y - sin(rad) * g.length * 0.7;
-                painter.drawLine(g.x, g.y, x2, y2);
-            }
         }
 
-        // облака
-        painter.setOpacity(0.7);
-        painter.setBrush(Qt::white);
-        painter.setPen(Qt::NoPen);
-        for (const Cloud &c : clouds) {
-            painter.drawEllipse(c.x, c.y, c.size, c.size / 2);
-        }
-        painter.setOpacity(1.0);
-
-        // 🌳 деревья (спрайты)
+        // деревья
         if (!treeSprite.isNull()) {
             for (const QPointF &tree : trees) {
                 painter.save();
@@ -269,15 +281,50 @@ protected:
             }
         }
 
+        // ВРАЖЕСКИЕ САМОЛЁТЫ
+        for (const EnemyPlane &e : enemies) {
+            if (!e.alive) continue;
+
+            painter.save();
+            painter.translate(e.x, e.y);
+            painter.rotate(e.angle + 90);
+
+            QPixmap *enemySprite = (e.type == 0) ? &enemyMigSprite : &enemyF16Sprite;
+            QPointF center(enemySprite->width() / 2.0, enemySprite->height() / 2.0);
+            painter.drawPixmap(-center, *enemySprite);
+
+            // полоска здоровья
+            if (e.hp < 3) {
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(Qt::red);
+                painter.drawRect(-15, -25, 30, 4);
+                painter.setBrush(Qt::green);
+                painter.drawRect(-15, -25, 10 * e.hp, 4);
+            }
+
+            painter.restore();
+        }
+
+        // ракеты игрока
         if (!rocketSprite.isNull()) {
             for (const Rocket &r : rockets) {
                 painter.save();
                 painter.translate(r.x, r.y);
-
-                // поворот ракеты по направлению
-                float angle = atan2(r.vy, r.vx) * 180 / M_PI;
+                float angle = atan2(r.vy, r.vx) * 90 / M_PI;
                 painter.rotate(angle);
+                QPointF center(rocketSprite.width() / 2.0, rocketSprite.height() / 2.0);
+                painter.drawPixmap(-center, rocketSprite);
+                painter.restore();
+            }
+        }
 
+        // ракеты врагов
+        if (!rocketSprite.isNull()) {
+            for (const Rocket &r : enemyRockets) {
+                painter.save();
+                painter.translate(r.x, r.y);
+                float angle = atan2(r.vy, r.vx) * 90 / M_PI;
+                painter.rotate(angle);
                 QPointF center(rocketSprite.width() / 2.0, rocketSprite.height() / 2.0);
                 painter.drawPixmap(-center, rocketSprite);
                 painter.restore();
@@ -287,25 +334,24 @@ protected:
         // аэродром
         painter.save();
         painter.translate(airfield.x, airfield.y);
-        painter.setBrush(QColor(100, 100, 100));
-        painter.drawRect(-200, -30, 400, 60);
+
+        if (!asphaltTexture.isNull()) {
+            painter.setBrush(QBrush(asphaltTexture));
+            painter.setPen(Qt::NoPen);
+            painter.drawRect(-300, -30, 1200, 80);
+        }
+
+        // огни (поверх асфальта)
         if (fuel < 30 && blink && !onGround) {
             painter.setBrush(Qt::red);
         } else {
             painter.setBrush(Qt::yellow);
         }
-        for (int i = -180; i <= 180; i += 45) {
-            painter.drawEllipse(i, -35, 7, 7);
-            painter.drawEllipse(i, 30, 7, 7);
+        for (int i = -280; i <= 900; i += 45) {
+            painter.drawEllipse(i, -45, 7, 7);
+            painter.drawEllipse(i, 55, 7, 7);
         }
         painter.restore();
-
-        // пули пулемёта
-        painter.setBrush(Qt::green);
-        painter.setPen(Qt::NoPen);
-        for (const Bullet &b : bullets) {
-            painter.drawEllipse(b.x - 2, b.y - 2, 4, 4);
-        }
 
         // цели
         for (const Target &t : targets) {
@@ -313,33 +359,18 @@ protected:
             painter.save();
             painter.translate(t.x, t.y);
 
-            if (t.type == 0) { // танк
+            if (t.type == 0) {
                 if (!tankSprite.isNull()) {
                     QPointF center(tankSprite.width() / 2.0, tankSprite.height() / 2.0);
                     painter.drawPixmap(-center, tankSprite);
-                } else {
-                    painter.setBrush(Qt::darkGreen);
-                    painter.drawRect(-10, -5, 20, 10);
-                    painter.drawRect(-5, -10, 10, 5);
-                    painter.setBrush(Qt::black);
-                    painter.drawEllipse(-8, -2, 4, 4);
-                    painter.drawEllipse(4, -2, 4, 4);
                 }
             }
-            else { // пво
-                if (!pvoSprite.isNull()) {
-                    QPointF center(pvoSprite.width() / 2.0, pvoSprite.height() / 2.0);
-                    painter.drawPixmap(-center, pvoSprite);
+            else {
+                if (!AASprite.isNull()) {
+                    QPointF center(AASprite.width() / 2.0, AASprite.height() / 2.0);
+                    painter.drawPixmap(-center, AASprite);
                     painter.setPen(QPen(Qt::black, 3));
                     painter.drawLine(0, 0, cos(t.angle) * 25, sin(t.angle) * 25);
-                } else {
-                    painter.setBrush(Qt::darkRed);
-                    painter.drawRect(-8, -8, 16, 16);
-                    painter.setPen(QPen(Qt::white, 2));
-                    painter.drawLine(0, -8, 0, 8);
-                    painter.drawLine(-8, 0, 8, 0);
-                    painter.setPen(QPen(Qt::black, 3));
-                    painter.drawLine(0, 0, cos(t.angle) * 15, sin(t.angle) * 15);
                 }
             }
             painter.restore();
@@ -361,10 +392,10 @@ protected:
             }
         }
 
-        // пули пво
+        // пули зенитного оружия
         painter.setBrush(Qt::yellow);
         painter.setPen(Qt::NoPen);
-        for (const PvoBullet &b : pvoBullets) {
+        for (const AABullet &b : AABullets) {
             painter.drawEllipse(b.x - 2, b.y - 2, 4, 4);
         }
 
@@ -376,27 +407,29 @@ protected:
             painter.drawLine(h.x + 8, h.y - 8, h.x - 8, h.y + 8);
         }
 
-        // самолёт
+        // === ОТРИСОВКА САМОЛЁТА ===
         painter.save();
         painter.translate(posX, posY);
         painter.rotate(angle + 90);
-        QPointF center(planeSprite.width() / 2.0, planeSprite.height() / 2.0);
-        painter.drawPixmap(-center, planeSprite);
-        painter.restore();
 
-        // огонь из пулемёта
-        if (shooting) {
-            painter.save();
-            painter.translate(posX, posY);
-            painter.rotate(angle);
-            painter.setBrush(Qt::yellow);
-            painter.setPen(Qt::NoPen);
+        QPixmap *currentSprite = &su27Sprite;
 
-            // одна струя из носа
-            painter.drawEllipse(35, -3, 10, 6);
-
-            painter.restore();
+        if (currentPlane == 1 && !su30Sprite.isNull()) {
+            currentSprite = &su30Sprite;
         }
+        else if (currentPlane == 2 && !su34Sprite.isNull()) {
+            currentSprite = &su34Sprite;
+        }
+        else if (currentPlane == 3 && !su25Sprite.isNull()) {
+            currentSprite = &su25Sprite;
+        }
+        else if (currentPlane == 4 && !su57Sprite.isNull()) {
+            currentSprite = &su57Sprite;
+        }
+
+        QPointF center(currentSprite->width() / 2.0, currentSprite->height() / 2.0);
+        painter.drawPixmap(-center, *currentSprite);
+        painter.restore();
 
         // след
         if (trail.size() > 1) {
@@ -408,10 +441,9 @@ protected:
 
         painter.resetTransform();
 
-        // радар
+        // интерфейсы
         drawRadar(painter);
 
-        // магазин или hud
         if (shopOpen) {
             drawShop(painter);
         } else {
@@ -428,23 +460,22 @@ protected:
                 painter.drawText(10, 140, "нажми M для магазина");
             } else {
                 painter.setPen(Qt::white);
-                painter.drawText(10, 120, "F - стрельба, Space - бомба");
+                painter.drawText(10, 120, "SPACE - бомба, R - ракета");
             }
 
             if (fuel < 30 && !onGround) {
                 painter.setPen(blink ? Qt::red : Qt::white);
                 painter.setFont(QFont("Arial", 14, QFont::Bold));
-                painter.drawText(width()/2 - 100, 100, "низко топливо!");
+                painter.drawText(width()/2 - 100, 100, "мало топлива!");
             }
 
-            // стрелка к аэродрому
             if (!onGround) {
                 drawAirfieldArrow(painter);
             }
         }
     }
 
-    // стрелка к аэродрому
+    // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ОТРИСОВКИ ===
     void drawAirfieldArrow(QPainter &painter) {
         float dx = airfield.x - posX;
         float dy = airfield.y - posY;
@@ -481,7 +512,7 @@ protected:
 
     void drawRadar(QPainter &painter) {
         painter.save();
-        painter.translate(650, 80);
+        painter.translate(width() - 180, 80);
 
         painter.setBrush(QColor(0, 30, 0, 200));
         painter.setPen(QPen(Qt::green, 2));
@@ -507,15 +538,29 @@ protected:
             float dy = t.y - posY;
 
             float dist = sqrt(dx*dx + dy*dy);
-            if (dist < 4000) {  // увеличиваем дальность радара
-                float radarX = (dx / 4000) * 50;
-                float radarY = (dy / 4000) * 50;
+            if (dist < 6000) {
+                float radarX = (dx / 6000) * 50;
+                float radarY = (dy / 6000) * 50;
 
                 if (t.type == 2) {
                     painter.setBrush(Qt::red);
                 } else {
                     painter.setBrush(Qt::yellow);
                 }
+                painter.drawEllipse(radarX - 3, radarY - 3, 6, 6);
+            }
+        }
+
+        // ВРАГИ НА РАДАРЕ
+        for (const EnemyPlane &e : enemies) {
+            if (!e.alive) continue;
+            float dx = e.x - posX;
+            float dy = e.y - posY;
+            float dist = sqrt(dx*dx + dy*dy);
+            if (dist < 6000) {
+                float radarX = (dx / 6000) * 50;
+                float radarY = (dy / 6000) * 50;
+                painter.setBrush(Qt::magenta);
                 painter.drawEllipse(radarX - 3, radarY - 3, 6, 6);
             }
         }
@@ -530,7 +575,7 @@ protected:
 
         painter.setPen(Qt::white);
         painter.setFont(QFont("Arial", 18, QFont::Bold));
-        painter.drawText(rect().adjusted(0, 20, 0, 0), Qt::AlignHCenter, "МАГАЗИН САМОЛЁТОВ");
+        painter.drawText(rect().adjusted(0, 20, 0, 0), Qt::AlignHCenter, "Ангар");
 
         painter.setFont(QFont("Arial", 12));
 
@@ -565,18 +610,19 @@ protected:
             painter.drawText(240, y - 10, skins[i].name);
 
             painter.setFont(QFont("Arial", 11));
-            QString stats = "+" + QString::number(skins[i].speedBonus) + " скор.  +" +
-                           QString::number(skins[i].armorBonus) + " броня  +" +
-                           QString::number(skins[i].bombBonus) + " бомб";
+            QString stats = "+" + QString::number(skins[i].speedBonus) + " скор.   " +
+                QString::number(skins[i].armorBonus) + "+ броня   " +
+                QString::number(skins[i].bombBonus) + "+ бомб   " +
+                QString::number(skins[i].turnSpeed) + " вращ.  ";
             painter.drawText(240, y + 10, stats);
 
             if (skins[i].owned) {
                 if (i == currentPlane) {
                     painter.setPen(Qt::green);
-                    painter.drawText(550, y, "ВЫБРАН");
+                    painter.drawText(550, y, "выбран");
                 } else {
                     painter.setPen(Qt::green);
-                    painter.drawText(550, y, "КУПЛЕНО");
+                    painter.drawText(550, y, "куплен");
                 }
             } else {
                 painter.setPen(Qt::yellow);
@@ -586,9 +632,10 @@ protected:
 
         painter.setPen(Qt::white);
         painter.setFont(QFont("Arial", 12));
-        painter.drawText(300, 500, "M - выход, ↑/↓ - выбор, ENTER - купить/выбрать");
+        painter.drawText(300, 570, "M - выход, ↑/↓ - выбор, ENTER - купить/выбрать");
     }
 
+    // === ОБРАБОТКА НАЖАТИЙ ===
     void keyPressEvent(QKeyEvent *event) override {
         if (event->key() == Qt::Key_Escape) {
             qApp->quit();
@@ -620,20 +667,12 @@ protected:
                         money -= skins[selectedSkin].price;
                         skins[selectedSkin].owned = true;
                         currentPlane = selectedSkin;
-
-                        planeSprite.load(skins[selectedSkin].spriteFile);
-                        if (!planeSprite.isNull()) {
-                            planeSprite = planeSprite.scaled(80, 70, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                        }
                         saveMoney();
+                        saveHangar();
                     }
                 } else {
                     currentPlane = selectedSkin;
-
-                    planeSprite.load(skins[selectedSkin].spriteFile);
-                    if (!planeSprite.isNull()) {
-                        planeSprite = planeSprite.scaled(80, 70, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                    }
+                    saveHangar();
                 }
                 update();
                 return;
@@ -646,55 +685,69 @@ protected:
         if (event->key() == Qt::Key_A) keyA = true;
         if (event->key() == Qt::Key_D) keyD = true;
 
-        if (event->key() == Qt::Key_F) {
-            shooting = true;
-        }
-
         if (event->key() == Qt::Key_M && onGround) {
             shopOpen = true;
             selectedSkin = currentPlane;
         }
 
-        // ракеты
+        // === ЗАПУСК РАКЕТЫ ===
         if (event->key() == Qt::Key_R && !onGround && money >= 10) {
             money -= 10;
             saveMoney();
 
-            // 🚀 считаем направление самолёта
             float rad = angle * M_PI / 180.0f;
 
-            // ищем ближайшую цель
-            Target *nearest = nullptr;
+            // ищем ближайшую цель (сначала враги, потом наземные)
+            EnemyPlane *nearestEnemy = nullptr;
+            Target *nearestTarget = nullptr;
             float minDist = 999999;
 
-            for (Target &t : targets) {
-                if (!t.alive) continue;
-                float dist = sqrt(pow(posX - t.x, 2) + pow(posY - t.y, 2));
+            // сначала ищем врагов
+            for (EnemyPlane &e : enemies) {
+                if (!e.alive) continue;
+                float dist = sqrt(pow(posX - e.x, 2) + pow(posY - e.y, 2));
                 if (dist < minDist) {
                     minDist = dist;
-                    nearest = &t;
+                    nearestEnemy = &e;
                 }
             }
 
-            if (nearest) {
-                Rocket r;
-                // ракета вылетает из носа
-                r.x = posX + cos(rad) * 50;
-                r.y = posY + sin(rad) * 50;
-
-                // начальная скорость - В СТОРОНУ ЦЕЛИ, а не прямо
-                float dx = nearest->x - r.x;
-                float dy = nearest->y - r.y;
-                float dist = sqrt(dx*dx + dy*dy);
-
-                float rocketSpeed = 50.0f;
-                r.vx = (dx / dist) * rocketSpeed;
-                r.vy = (dy / dist) * rocketSpeed;
-
-                r.timer = 300;
-                r.target = nearest;
-                rockets.append(r);
+            // если врагов нет, ищем наземные цели
+            if (!nearestEnemy) {
+                for (Target &t : targets) {
+                    if (!t.alive) continue;
+                    float dist = sqrt(pow(posX - t.x, 2) + pow(posY - t.y, 2));
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestTarget = &t;
+                    }
+                }
             }
+
+            Rocket r;
+            r.x = posX + cos(rad) * 50;
+            r.y = posY + sin(rad) * 50;
+
+            float dx, dy, dist;
+
+            if (nearestEnemy) {
+                dx = nearestEnemy->x - r.x;
+                dy = nearestEnemy->y - r.y;
+                r.target = nullptr;  // для врагов target не нужен
+            } else if (nearestTarget) {
+                dx = nearestTarget->x - r.x;
+                dy = nearestTarget->y - r.y;
+                r.target = nearestTarget;  // для наземных целей
+            } else {
+                return;  // нет целей
+            }
+
+            dist = sqrt(dx*dx + dy*dy);
+            float rocketSpeed = 40.0f;
+            r.vx = (dx / dist) * rocketSpeed;
+            r.vy = (dy / dist) * rocketSpeed;
+            r.timer = 200;
+            rockets.append(r);
         }
     }
 
@@ -706,35 +759,38 @@ protected:
         if (event->key() == Qt::Key_A) keyA = false;
         if (event->key() == Qt::Key_D) keyD = false;
 
-        if (event->key() == Qt::Key_F) {
-            shooting = false;
-        }
-
+        // === СБРОС БОМБЫ ===
         if (event->key() == Qt::Key_Space && bombs > 0 && !onGround) {
             dropBomb();
         }
     }
 
 private slots:
+    // === ОСНОВНАЯ ЛОГИКА ИГРЫ ===
     void updateGame() {
         if (shopOpen) return;
 
         int speedBonus = skins[currentPlane].speedBonus;
         int armorBonus = skins[currentPlane].armorBonus;
 
+        // управление тягой
         if (keyW) thrust = std::min(thrust + 0.1f, 5.0f + speedBonus);
         if (keyS) thrust = std::max(thrust - 0.1f, 0.0f);
 
-        if (keyA) angle -= 3.0f;
-        if (keyD) angle += 3.0f;
+        // поворот
+        float currentTurnSpeed = skins[currentPlane].turnSpeed;
+        if (keyA) angle -= currentTurnSpeed;
+        if (keyD) angle += currentTurnSpeed;
         if (angle >= 360) angle -= 360;
         if (angle < 0) angle += 360;
 
+        // расход топлива
         if (thrust > 0 && fuel > 0 && !onGround) {
-            fuel -= 0.02f;
+            fuel -= 0.01f;
             if (fuel < 0) fuel = 0;
         }
 
+        // звуковое предупреждение о топливе
         if (fuel < 20 && fuel > 0 && !onGround && !fuelWarningPlayed) {
             QApplication::beep();
             fuelWarningPlayed = true;
@@ -743,6 +799,7 @@ private slots:
             fuelWarningPlayed = false;
         }
 
+        // физика движения
         float rad = angle * M_PI / 180.0f;
         QVector2D direction(cos(rad), sin(rad));
 
@@ -755,65 +812,13 @@ private slots:
         posX += velocity.x();
         posY += velocity.y();
 
+        // границы карты
         if (posX < 0) posX = 0;
         if (posX > 16000) posX = 16000;
         if (posY < 0) posY = 0;
         if (posY > 16000) posY = 16000;
 
-        for (Cloud &c : clouds) {
-            c.x += c.speed;
-            if (c.x > 8000) c.x = 0;
-        }
-
-        // стрельба
-        if (shooting) {
-            if (frameCounter++ % 4 == 0) {  // каждые 4 кадра
-                Bullet b;
-                float rad = angle * M_PI / 180.0f;
-                float noseOffset = 45.0f;
-
-                b.x = posX + cos(rad) * noseOffset;
-                b.y = posY + sin(rad) * noseOffset;
-
-                float bulletSpeed = 60.0f;
-                b.vx = cos(rad) * bulletSpeed;
-                b.vy = sin(rad) * bulletSpeed;
-
-                b.timer = 200;
-                bullets.append(b);
-            }
-        }
-
-        for (int i = bullets.size() - 1; i >= 0; i--) {
-            Bullet &b = bullets[i];
-            b.x += b.vx;
-            b.y += b.vy;
-            b.timer--;
-
-            for (Target &t : targets) {
-                if (!t.alive) continue;
-
-                float dist = sqrt(pow(b.x - t.x, 2) + pow(b.y - t.y, 2));
-                if (dist < 20) {
-                    t.hp--;
-                    hitMarkers.append({t.x, t.y, 10});
-
-                    if (t.hp <= 0) {
-                        t.alive = false;
-                        money += 5;
-                        saveMoney();
-                    }
-
-                    bullets.removeAt(i);
-                    break;
-                }
-            }
-
-            if (b.timer <= 0 || b.x < 0 || b.x > 16000 || b.y < 0 || b.y > 16000) {
-                bullets.removeAt(i);
-            }
-        }
-
+        // === ЛОГИКА ЗЕНИТНОГО ОРУЖИЯ ===
         for (Target &t : targets) {
             if (!t.alive || t.type != 2) continue;
 
@@ -822,20 +827,21 @@ private slots:
             t.angle = atan2(dy, dx);
 
             float dist = sqrt(dx*dx + dy*dy);
-            if (dist < 300 && rand() % 30 == 0) {
-                PvoBullet b;
+            if (dist < 600 && rand() % 30 == 0) {
+                AABullet b;
                 b.x = t.x;
                 b.y = t.y;
                 float speed = 5.0f;
                 b.vx = cos(t.angle) * speed;
                 b.vy = sin(t.angle) * speed;
                 b.timer = 50;
-                pvoBullets.append(b);
+                AABullets.append(b);
             }
         }
 
-        for (int i = pvoBullets.size() - 1; i >= 0; i--) {
-            PvoBullet &b = pvoBullets[i];
+        // движение пуль зенитного оружия
+        for (int i = AABullets.size() - 1; i >= 0; i--) {
+            AABullet &b = AABullets[i];
             b.x += b.vx;
             b.y += b.vy;
             b.timer--;
@@ -844,7 +850,7 @@ private slots:
             if (dist < 15 && !onGround) {
                 armor -= 10;
                 hitMarkers.append({posX, posY, 10});
-                pvoBullets.removeAt(i);
+                AABullets.removeAt(i);
                 if (armor <= 0) {
                     posX = 4000;
                     posY = 4000;
@@ -858,15 +864,176 @@ private slots:
             }
 
             if (b.timer <= 0 || b.x < 0 || b.x > 8000 || b.y < 0 || b.y > 8000) {
-                pvoBullets.removeAt(i);
+                AABullets.removeAt(i);
             }
         }
 
+        // ЛОГИКА ВРАЖЕСКИХ САМОЛЁТОВ (БЫСТРЕЕ И С РАКЕТАМИ)
+        for (EnemyPlane &e : enemies) {
+            if (!e.alive) continue;
+
+            // вектор к игроку
+            float dx = posX - e.x;
+            float dy = posY - e.y;
+            float dist = sqrt(dx*dx + dy*dy);
+
+            if (dist < 1000) {  // заметили игрока
+                // поворачиваемся к игроку (быстрее)
+                float targetAngle = atan2(dy, dx) * 180 / M_PI;
+                float angleDiff = targetAngle - e.angle;
+                while (angleDiff > 180) angleDiff -= 360;
+                while (angleDiff < -180) angleDiff += 360;
+                e.angle += angleDiff * 0.1f;  // быстрее поворот
+
+                // летим к игроку (БЫСТРЕЕ!)
+                float speed = 7.5f;
+                float rad = e.angle * M_PI / 180.0f;
+                e.x += cos(rad) * speed;
+                e.y += sin(rad) * speed;
+
+                // СТРЕЛЬБА РАКЕТАМИ!
+                e.shootTimer++;
+                if (e.shootTimer > 45 && dist < 700) {
+                    e.shootTimer = 0;
+
+                    // создаём вражескую ракету
+                    Rocket r;
+                    float rad = e.angle * M_PI / 180.0f;
+                    r.x = e.x + cos(rad) * 30;
+                    r.y = e.y + sin(rad) * 30;
+
+                    float rocketSpeed = 40.0f;
+                    r.vx = cos(rad) * rocketSpeed;
+                    r.vy = sin(rad) * rocketSpeed;
+
+                    r.timer = 200;
+                    r.target = nullptr;  // не нужен для врагов
+                    enemyRockets.append(r);
+                }
+            } else {
+                // патрулируем
+                e.angle += 0.5f;
+                float rad = e.angle * M_PI / 180.0f;
+                e.x += cos(rad) * 1.5f;
+                e.y += sin(rad) * 1.5f;
+            }
+
+            // границы
+            if (e.x < 0) e.x = 16000;
+            if (e.x > 16000) e.x = 0;
+            if (e.y < 0) e.y = 16000;
+            if (e.y > 16000) e.y = 0;
+        }
+
+        // ДВИЖЕНИЕ РАКЕТ ВРАГОВ
+        for (int i = enemyRockets.size() - 1; i >= 0; i--) {
+            Rocket &r = enemyRockets[i];
+            r.x += r.vx;
+            r.y += r.vy;
+            r.timer--;
+
+            // проверка попадания в игрока
+            float distToPlayer = sqrt(pow(posX - r.x, 2) + pow(posY - r.y, 2));
+            if (distToPlayer < 20 && !onGround) {
+                armor -= 20;
+                hitMarkers.append({posX, posY, 15});
+                enemyRockets.removeAt(i);
+                if (armor <= 0) {
+                    posX = 4000;
+                    posY = 4000;
+                    armor = 100 + armorBonus;
+                    money = 0;
+                    bombs = 50;
+                    fuel = 100;
+                    saveMoney();
+                }
+                continue;
+            }
+
+            if (r.timer <= 0 || r.x < 0 || r.x > 16000 || r.y < 0 || r.y > 16000) {
+                enemyRockets.removeAt(i);
+            }
+        }
+
+        // ДВИЖЕНИЕ РАКЕТ ИГРОКА
+        for (int i = rockets.size() - 1; i >= 0; i--) {
+            Rocket &r = rockets[i];
+            r.x += r.vx;
+            r.y += r.vy;
+            r.timer--;
+
+            bool hit = false;
+
+            // проверка попадания по врагам
+            for (EnemyPlane &e : enemies) {
+                if (!e.alive) continue;
+                float dist = sqrt(pow(r.x - e.x, 2) + pow(r.y - e.y, 2));
+                if (dist < 20) {
+                    e.hp -= 3;
+                    hitMarkers.append({e.x, e.y, 15});
+                    if (e.hp <= 0) {
+                        e.alive = false;
+                        money += 50;
+                        saveMoney();
+                    }
+                    rockets.removeAt(i);
+                    hit = true;
+                    break;
+                }
+            }
+
+            if (hit) continue;
+
+            // проверка попадания по наземным целям (если есть target)
+            if (r.target && r.target->alive) {
+                float dist = sqrt(pow(r.x - r.target->x, 2) + pow(r.y - r.target->y, 2));
+                if (dist < 20) {
+                    r.target->hp -= 5;
+                    hitMarkers.append({r.target->x, r.target->y, 15});
+                    if (r.target->hp <= 0) {
+                        r.target->alive = false;
+                        money += 10;
+                        saveMoney();
+                    }
+                    rockets.removeAt(i);
+                    continue;
+                }
+            }
+
+            // проверка по всем наземным целям (если target не задан, но это ракета по врагу)
+            if (!r.target) {
+                for (Target &t : targets) {
+                    if (!t.alive) continue;
+                    float dist = sqrt(pow(r.x - t.x, 2) + pow(r.y - t.y, 2));
+                    if (dist < 20) {
+                        t.hp -= 5;
+                        hitMarkers.append({t.x, t.y, 15});
+                        if (t.hp <= 0) {
+                            t.alive = false;
+                            money += 10;
+                            saveMoney();
+                        }
+                        rockets.removeAt(i);
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hit) continue;
+
+            if (r.timer <= 0 || r.x < 0 || r.x > 16000 || r.y < 0 || r.y > 16000) {
+                rockets.removeAt(i);
+            }
+        }
+
+        // анимация попаданий
         for (int i = hitMarkers.size() - 1; i >= 0; i--) {
             hitMarkers[i].timer--;
             if (hitMarkers[i].timer <= 0) hitMarkers.removeAt(i);
         }
 
+        // === ПОСАДКА И ЗАПРАВКА ===
         float distToAirfield = sqrt(pow(posX - airfield.x, 2) + pow(posY - airfield.y, 2));
         bool wasOnGround = onGround;
         onGround = (distToAirfield < 600 && velocity.length() < 3.0f);
@@ -878,63 +1045,30 @@ private slots:
             money += 50;
             saveMoney();
 
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 20; i++) {
                 float x = 1000 + rand() % 6000;
                 float y = 1000 + rand() % 6000;
                 targets.append(Target(x, y, (rand() % 2 == 0) ? 0 : 2));
+            }
+
+            // новые враги появляются
+            for (int i = 0; i < 2; i++) {
+                float x = 3000 + rand() % 10000;
+                float y = 3000 + rand() % 10000;
+                enemies.append(EnemyPlane(x, y, rand() % 2));
             }
         }
 
         if (wasOnGround && velocity.length() > 3.0f) onGround = false;
 
+        // след
         if (!onGround) {
             trail.push_back(QPointF(posX, posY));
-            if (trail.size() > 100) trail.removeFirst();
-        }
-
-        // движение ракет
-        for (int i = rockets.size() - 1; i >= 0; i--) {
-            Rocket &r = rockets[i];
-
-            // если цель жива — наводимся
-            if (r.target && r.target->alive) {
-                float dx = r.target->x - r.x;
-                float dy = r.target->y - r.y;
-                float dist = sqrt(dx*dx + dy*dy);
-
-                if (dist < 15) {  // попадание
-                    r.target->hp -= 5;
-                    hitMarkers.append({r.target->x, r.target->y, 15});
-
-                    if (r.target->hp <= 0) {
-                        r.target->alive = false;
-                        money += 10;
-                        saveMoney();
-                    }
-                    rockets.removeAt(i);
-                    continue;
-                }
-
-                // плавное наведение
-                float speed = 8.0f;
-                float targetVx = (dx / dist) * speed;
-                float targetVy = (dy / dist) * speed;
-
-                // инерция (плавный поворот)
-                r.vx = r.vx * 0.95f + targetVx * 0.05f;
-                r.vy = r.vy * 0.95f + targetVy * 0.05f;
-            }
-
-            r.x += r.vx;
-            r.y += r.vy;
-            r.timer--;
-
-            if (r.timer <= 0 || r.x < 0 || r.x > 16000 || r.y < 0 || r.y > 16000) {
-                rockets.removeAt(i);
-            }
+            if (trail.size() > 300) trail.removeFirst();
         }
     }
 
+    // === СБРОС БОМБЫ ===
     void dropBomb() {
         bombs--;
         for (Target &t : targets) {
@@ -957,6 +1091,7 @@ private slots:
         }
     }
 
+    // === СОХРАНЕНИЕ И ЗАГРУЗКА ДЕНЕГ ===
     void loadMoney() {
         QFile file("money.txt");
         if (file.open(QIODevice::ReadOnly)) {
@@ -976,6 +1111,7 @@ private slots:
     }
 
 private:
+    // === ПЕРЕМЕННЫЕ ИГРОКА ===
     float posX, posY;
     QVector2D velocity;
     float angle, thrust, fuel;
@@ -985,25 +1121,38 @@ private:
     bool shopOpen;
     int selectedSkin, currentPlane;
     QList<QPointF> trail;
-    QPixmap planeSprite;
+
+    // === СПРАЙТЫ ===
+    QPixmap su27Sprite;
+    QPixmap su30Sprite;
+    QPixmap su25Sprite;
+    QPixmap su34Sprite;
+    QPixmap su57Sprite;
     QPixmap tankSprite;
-    QPixmap rocketSprite;  // спрайт ракеты
-    QPixmap pvoSprite;
-    QPixmap treeSprite;      // 🌳 спрайт дерева
+    QPixmap rocketSprite;
+    QPixmap AASprite;
+    QPixmap treeSprite;
     QPixmap grassTexture;
+    QPixmap asphaltTexture;
+
+    // СПРАЙТЫ ДЛЯ ВРАГОВ
+    QPixmap enemyMigSprite;
+    QPixmap enemyF16Sprite;
+
+    // === ИГРОВЫЕ ОБЪЕКТЫ ===
     QVector<Target> targets;
     QVector<Rocket> rockets;
+    QVector<Rocket> enemyRockets;
     QVector<HitMarker> hitMarkers;
-    QVector<PvoBullet> pvoBullets;
-    QVector<Bullet> bullets;
-    QVector<Cloud> clouds;
+    QVector<AABullet> AABullets;
     QVector<PlaneSkin> skins;
     QVector<GrassBlade> grass;
-    QVector<QPointF> trees;  // 🌳 координаты деревьев
-    Airfield airfield;
+    QVector<QPointF> trees;
 
-    bool shooting;
-    int frameCounter;
+    // КОНТЕЙНЕРЫ ДЛЯ ВРАГОВ
+    QVector<EnemyPlane> enemies;
+
+    Airfield airfield;
 };
 
 int main(int argc, char *argv[])
