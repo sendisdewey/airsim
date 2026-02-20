@@ -12,7 +12,7 @@
 #include <QFont>
 #include <QDir>
 
-// === СТРУКТУРЫ ДАННЫХ ===
+// структуры данных
 struct Target {
     float x, y;
     bool alive;
@@ -52,20 +52,18 @@ struct Rocket {
     Target *target;
 };
 
-// структура вражеской ракеты
 struct EnemyRocket {
     float x, y;
     float vx, vy;
     int timer;
 };
 
-// ✈️ СТРУКТУРА ВРАЖЕСКИХ САМОЛЁТОВ
 struct EnemyPlane {
     float x, y;
     float vx, vy;
     float angle;
     int hp;
-    int type;  // 0 - МиГ-29, 1 - F-16
+    int type;  // 0 - Eurofighter, 1 - F-14
     bool alive;
     int shootTimer;
 
@@ -84,7 +82,6 @@ struct PlaneSkin {
     QString spriteFile;
 };
 
-// === ОСНОВНОЙ КЛАСС ИГРЫ ===
 class AirplaneGame : public QWidget
 {
 public:
@@ -110,7 +107,7 @@ public:
         setFixedSize(1920, 900);
         setWindowTitle("airsim");
 
-        // === ЗАГРУЗКА СПРАЙТОВ ===
+        // загрузка спрайтов игрока
         su27Sprite.load("plane.png");
         if (!su27Sprite.isNull()) {
             su27Sprite = su27Sprite.scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -136,15 +133,15 @@ public:
             su57Sprite = su57Sprite.scaled(90, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
-        // ЗАГРУЗКА ВРАЖЕСКИХ СПРАЙТОВ
-        enemyMigSprite.load("EF.png");
-        if (!enemyMigSprite.isNull()) {
-            enemyMigSprite = enemyMigSprite.scaled(95, 95, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        // загрузка вражеских спрайтов
+        eurofighterSprite.load("EF.png");
+        if (!eurofighterSprite.isNull()) {
+            eurofighterSprite = eurofighterSprite.scaled(95, 95, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
-        enemyF16Sprite.load("f14.png");
-        if (!enemyF16Sprite.isNull()) {
-            enemyF16Sprite = enemyF16Sprite.scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        f18Sprite.load("f18.png");
+        if (!f18Sprite.isNull()) {
+            f18Sprite = f18Sprite.scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
         grassTexture.load("grass_texture.png");
@@ -177,7 +174,7 @@ public:
             rocketSprite = rocketSprite.scaled(40, 30, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
-        // === НАСТРОЙКА МАГАЗИНА ===
+        // настройка магазина
         skins.append({"СУ-27", 0, 2, 0, 0, 3.0f, true, "plane.png"});
         skins.append({"СУ-30", 2000, 3, 10, 0, 3.0f, false, "plane1.png"});
         skins.append({"СУ-34", 3000, 3, 15, 40, 2.5f, false, "plane2.png"});
@@ -187,15 +184,15 @@ public:
         loadMoney();
         loadHangar();
 
-        // === ГЕНЕРАЦИЯ МИРА ===
+        // генерация мира
         for (int i = 0; i < 20; i++) {
             float x = 2000 + rand() % 12000;
             float y = 2000 + rand() % 12000;
             targets.append(Target(x, y, (rand() % 2 == 0) ? 0 : 2));
         }
 
-        // ГЕНЕРАЦИЯ ВРАЖЕСКИХ САМОЛЁТОВ (БЫСТРЕЕ)
-        for (int i = 0; i < 15; i++) {
+        // генерация вражеских самолётов (Eurofighter и F-18)
+        for (int i = 0; i < 20; i++) {
             float x = 3000 + rand() % 10000;
             float y = 3000 + rand() % 10000;
             enemies.append(EnemyPlane(x, y, rand() % 2));
@@ -207,7 +204,7 @@ public:
             trees.append(QPointF(x, y));
         }
 
-        // === ТАЙМЕРЫ ===
+        // таймеры
         QTimer *timer = new QTimer(this);
         connect(timer, &QTimer::timeout, [this]() { updateGame(); });
         connect(timer, &QTimer::timeout, this, QOverload<>::of(&AirplaneGame::update));
@@ -220,7 +217,6 @@ public:
         setFocusPolicy(Qt::StrongFocus);
     }
 
-    // === СОХРАНЕНИЕ АНГАРА ===
     void saveHangar() {
         QFile file("hangar.txt");
         if (file.open(QIODevice::WriteOnly)) {
@@ -233,7 +229,6 @@ public:
         }
     }
 
-    // === ЗАГРУЗКА АНГАРА ===
     void loadHangar() {
         QFile file("hangar.txt");
         if (file.open(QIODevice::ReadOnly)) {
@@ -249,7 +244,6 @@ public:
     }
 
 protected:
-    // === ОТРИСОВКА ===
     void paintEvent(QPaintEvent *) override {
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
@@ -281,7 +275,7 @@ protected:
             }
         }
 
-        // ВРАЖЕСКИЕ САМОЛЁТЫ
+        // вражеские самолёты
         for (const EnemyPlane &e : enemies) {
             if (!e.alive) continue;
 
@@ -289,11 +283,10 @@ protected:
             painter.translate(e.x, e.y);
             painter.rotate(e.angle + 90);
 
-            QPixmap *enemySprite = (e.type == 0) ? &enemyMigSprite : &enemyF16Sprite;
+            QPixmap *enemySprite = (e.type == 0) ? &eurofighterSprite : &f18Sprite;
             QPointF center(enemySprite->width() / 2.0, enemySprite->height() / 2.0);
             painter.drawPixmap(-center, *enemySprite);
 
-            // полоска здоровья
             if (e.hp < 3) {
                 painter.setPen(Qt::NoPen);
                 painter.setBrush(Qt::red);
@@ -341,7 +334,6 @@ protected:
             painter.drawRect(-300, -30, 1200, 80);
         }
 
-        // огни (поверх асфальта)
         if (fuel < 30 && blink && !onGround) {
             painter.setBrush(Qt::red);
         } else {
@@ -375,7 +367,6 @@ protected:
             }
             painter.restore();
 
-            // полоска здоровья
             if (t.type == 2 && t.hp < 3) {
                 painter.setPen(Qt::NoPen);
                 painter.setBrush(Qt::red);
@@ -407,7 +398,7 @@ protected:
             painter.drawLine(h.x + 8, h.y - 8, h.x - 8, h.y + 8);
         }
 
-        // === ОТРИСОВКА САМОЛЁТА ===
+        // самолёт игрока
         painter.save();
         painter.translate(posX, posY);
         painter.rotate(angle + 90);
@@ -441,7 +432,6 @@ protected:
 
         painter.resetTransform();
 
-        // интерфейсы
         drawRadar(painter);
 
         if (shopOpen) {
@@ -466,7 +456,7 @@ protected:
             if (fuel < 30 && !onGround) {
                 painter.setPen(blink ? Qt::red : Qt::white);
                 painter.setFont(QFont("Arial", 14, QFont::Bold));
-                painter.drawText(width()/2 - 100, 100, "мало топлива!");
+                painter.drawText(width()/2 - 100, 100, "мало топлива");
             }
 
             if (!onGround) {
@@ -475,7 +465,6 @@ protected:
         }
     }
 
-    // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ОТРИСОВКИ ===
     void drawAirfieldArrow(QPainter &painter) {
         float dx = airfield.x - posX;
         float dy = airfield.y - posY;
@@ -536,8 +525,8 @@ protected:
 
             float dx = t.x - posX;
             float dy = t.y - posY;
-
             float dist = sqrt(dx*dx + dy*dy);
+
             if (dist < 6000) {
                 float radarX = (dx / 6000) * 50;
                 float radarY = (dy / 6000) * 50;
@@ -551,7 +540,6 @@ protected:
             }
         }
 
-        // ВРАГИ НА РАДАРЕ
         for (const EnemyPlane &e : enemies) {
             if (!e.alive) continue;
             float dx = e.x - posX;
@@ -610,10 +598,10 @@ protected:
             painter.drawText(240, y - 10, skins[i].name);
 
             painter.setFont(QFont("Arial", 11));
-            QString stats = "+" + QString::number(skins[i].speedBonus) + " скор.   " +
+            QString stats = "+" + QString::number(skins[i].speedBonus) + " скор   " +
                 QString::number(skins[i].armorBonus) + "+ броня   " +
                 QString::number(skins[i].bombBonus) + "+ бомб   " +
-                QString::number(skins[i].turnSpeed) + " вращ.  ";
+                QString::number(skins[i].turnSpeed) + " вращ  ";
             painter.drawText(240, y + 10, stats);
 
             if (skins[i].owned) {
@@ -635,7 +623,6 @@ protected:
         painter.drawText(300, 570, "M - выход, ↑/↓ - выбор, ENTER - купить/выбрать");
     }
 
-    // === ОБРАБОТКА НАЖАТИЙ ===
     void keyPressEvent(QKeyEvent *event) override {
         if (event->key() == Qt::Key_Escape) {
             qApp->quit();
@@ -690,19 +677,16 @@ protected:
             selectedSkin = currentPlane;
         }
 
-        // === ЗАПУСК РАКЕТЫ ===
         if (event->key() == Qt::Key_R && !onGround && money >= 10) {
             money -= 10;
             saveMoney();
 
             float rad = angle * M_PI / 180.0f;
 
-            // ищем ближайшую цель (сначала враги, потом наземные)
             EnemyPlane *nearestEnemy = nullptr;
             Target *nearestTarget = nullptr;
             float minDist = 999999;
 
-            // сначала ищем врагов
             for (EnemyPlane &e : enemies) {
                 if (!e.alive) continue;
                 float dist = sqrt(pow(posX - e.x, 2) + pow(posY - e.y, 2));
@@ -712,7 +696,6 @@ protected:
                 }
             }
 
-            // если врагов нет, ищем наземные цели
             if (!nearestEnemy) {
                 for (Target &t : targets) {
                     if (!t.alive) continue;
@@ -733,17 +716,17 @@ protected:
             if (nearestEnemy) {
                 dx = nearestEnemy->x - r.x;
                 dy = nearestEnemy->y - r.y;
-                r.target = nullptr;  // для врагов target не нужен
+                r.target = nullptr;
             } else if (nearestTarget) {
                 dx = nearestTarget->x - r.x;
                 dy = nearestTarget->y - r.y;
-                r.target = nearestTarget;  // для наземных целей
+                r.target = nearestTarget;
             } else {
-                return;  // нет целей
+                return;
             }
 
             dist = sqrt(dx*dx + dy*dy);
-            float rocketSpeed = 40.0f;
+            float rocketSpeed = 60.0f;
             r.vx = (dx / dist) * rocketSpeed;
             r.vy = (dy / dist) * rocketSpeed;
             r.timer = 200;
@@ -759,38 +742,32 @@ protected:
         if (event->key() == Qt::Key_A) keyA = false;
         if (event->key() == Qt::Key_D) keyD = false;
 
-        // === СБРОС БОМБЫ ===
         if (event->key() == Qt::Key_Space && bombs > 0 && !onGround) {
             dropBomb();
         }
     }
 
 private slots:
-    // === ОСНОВНАЯ ЛОГИКА ИГРЫ ===
     void updateGame() {
         if (shopOpen) return;
 
         int speedBonus = skins[currentPlane].speedBonus;
         int armorBonus = skins[currentPlane].armorBonus;
 
-        // управление тягой
         if (keyW) thrust = std::min(thrust + 0.1f, 5.0f + speedBonus);
         if (keyS) thrust = std::max(thrust - 0.1f, 0.0f);
 
-        // поворот
         float currentTurnSpeed = skins[currentPlane].turnSpeed;
         if (keyA) angle -= currentTurnSpeed;
         if (keyD) angle += currentTurnSpeed;
         if (angle >= 360) angle -= 360;
         if (angle < 0) angle += 360;
 
-        // расход топлива
         if (thrust > 0 && fuel > 0 && !onGround) {
             fuel -= 0.01f;
             if (fuel < 0) fuel = 0;
         }
 
-        // звуковое предупреждение о топливе
         if (fuel < 20 && fuel > 0 && !onGround && !fuelWarningPlayed) {
             QApplication::beep();
             fuelWarningPlayed = true;
@@ -799,7 +776,6 @@ private slots:
             fuelWarningPlayed = false;
         }
 
-        // физика движения
         float rad = angle * M_PI / 180.0f;
         QVector2D direction(cos(rad), sin(rad));
 
@@ -812,13 +788,11 @@ private slots:
         posX += velocity.x();
         posY += velocity.y();
 
-        // границы карты
         if (posX < 0) posX = 0;
         if (posX > 16000) posX = 16000;
         if (posY < 0) posY = 0;
         if (posY > 16000) posY = 16000;
 
-        // === ЛОГИКА ЗЕНИТНОГО ОРУЖИЯ ===
         for (Target &t : targets) {
             if (!t.alive || t.type != 2) continue;
 
@@ -839,7 +813,6 @@ private slots:
             }
         }
 
-        // движение пуль зенитного оружия
         for (int i = AABullets.size() - 1; i >= 0; i--) {
             AABullet &b = AABullets[i];
             b.x += b.vx;
@@ -868,7 +841,7 @@ private slots:
             }
         }
 
-        // ЛОГИКА ВРАЖЕСКИХ САМОЛЁТОВ (БЫСТРЕЕ И С РАКЕТАМИ)
+        // ЛОГИКА ВРАЖЕСКИХ САМОЛЁТОВ
         for (EnemyPlane &e : enemies) {
             if (!e.alive) continue;
 
@@ -877,62 +850,93 @@ private slots:
             float dy = posY - e.y;
             float dist = sqrt(dx*dx + dy*dy);
 
-            if (dist < 1000) {  // заметили игрока
-                // поворачиваемся к игроку (быстрее)
+            if (dist < 1200) {  // заметили игрока
+                // целевой угол
                 float targetAngle = atan2(dy, dx) * 180 / M_PI;
+
+                // плавно поворачиваем к цели
                 float angleDiff = targetAngle - e.angle;
                 while (angleDiff > 180) angleDiff -= 360;
                 while (angleDiff < -180) angleDiff += 360;
-                e.angle += angleDiff * 0.1f;  // быстрее поворот
 
-                // летим к игроку (БЫСТРЕЕ!)
-                float speed = 7.5f;
+                // скорость поворота
+                float turnSpeed = 5.0f;
+                if (angleDiff > turnSpeed) angleDiff = turnSpeed;
+                if (angleDiff < -turnSpeed) angleDiff = -turnSpeed;
+                e.angle += angleDiff;
+
+                // ускоряемся к цели
+                float targetSpeed = 8.5f;
                 float rad = e.angle * M_PI / 180.0f;
-                e.x += cos(rad) * speed;
-                e.y += sin(rad) * speed;
+                QVector2D direction(cos(rad), sin(rad));
 
-                // СТРЕЛЬБА РАКЕТАМИ!
+                // добавляем ускорение
+                e.vx += direction.x() * 0.1f;
+                e.vy += direction.y() * 0.1f;
+
+                // ограничиваем максимальную скорость
+                float currentSpeed = sqrt(e.vx*e.vx + e.vy*e.vy);
+                if (currentSpeed > targetSpeed) {
+                    e.vx = (e.vx / currentSpeed) * targetSpeed;
+                    e.vy = (e.vy / currentSpeed) * targetSpeed;
+                }
+
+                // стрельба ракетами
                 e.shootTimer++;
                 if (e.shootTimer > 45 && dist < 700) {
                     e.shootTimer = 0;
 
-                    // создаём вражескую ракету
                     Rocket r;
                     float rad = e.angle * M_PI / 180.0f;
                     r.x = e.x + cos(rad) * 30;
                     r.y = e.y + sin(rad) * 30;
 
-                    float rocketSpeed = 40.0f;
-                    r.vx = cos(rad) * rocketSpeed;
-                    r.vy = sin(rad) * rocketSpeed;
+                    // ракета летит с учётом скорости врага
+                    float rocketSpeed = 60.0f;
+                    r.vx = e.vx + cos(rad) * rocketSpeed;
+                    r.vy = e.vy + sin(rad) * rocketSpeed;
 
                     r.timer = 200;
-                    r.target = nullptr;  // не нужен для врагов
+                    r.target = nullptr;
                     enemyRockets.append(r);
                 }
             } else {
-                // патрулируем
+                // патрулируем с инерцией
                 e.angle += 0.5f;
                 float rad = e.angle * M_PI / 180.0f;
-                e.x += cos(rad) * 1.5f;
-                e.y += sin(rad) * 1.5f;
+                QVector2D direction(cos(rad), sin(rad));
+
+                e.vx += direction.x() * 0.05f;
+                e.vy += direction.y() * 0.05f;
+
+                float currentSpeed = sqrt(e.vx*e.vx + e.vy*e.vy);
+                if (currentSpeed > 3.0f) {
+                    e.vx = (e.vx / currentSpeed) * 3.0f;
+                    e.vy = (e.vy / currentSpeed) * 3.0f;
+                }
             }
 
+            // применяем скорость
+            e.x += e.vx;
+            e.y += e.vy;
+
+            // сопротивление воздуха (как у игрока)
+            e.vx *= 0.99f;
+            e.vy *= 0.99f;
+
             // границы
-            if (e.x < 0) e.x = 16000;
-            if (e.x > 16000) e.x = 0;
-            if (e.y < 0) e.y = 16000;
-            if (e.y > 16000) e.y = 0;
+            if (e.x < 0) { e.x = 16000; e.vx = 0; }
+            if (e.x > 16000) { e.x = 0; e.vx = 0; }
+            if (e.y < 0) { e.y = 16000; e.vy = 0; }
+            if (e.y > 16000) { e.y = 0; e.vy = 0; }
         }
 
-        // ДВИЖЕНИЕ РАКЕТ ВРАГОВ
         for (int i = enemyRockets.size() - 1; i >= 0; i--) {
             Rocket &r = enemyRockets[i];
             r.x += r.vx;
             r.y += r.vy;
             r.timer--;
 
-            // проверка попадания в игрока
             float distToPlayer = sqrt(pow(posX - r.x, 2) + pow(posY - r.y, 2));
             if (distToPlayer < 20 && !onGround) {
                 armor -= 20;
@@ -955,7 +959,6 @@ private slots:
             }
         }
 
-        // ДВИЖЕНИЕ РАКЕТ ИГРОКА
         for (int i = rockets.size() - 1; i >= 0; i--) {
             Rocket &r = rockets[i];
             r.x += r.vx;
@@ -964,7 +967,6 @@ private slots:
 
             bool hit = false;
 
-            // проверка попадания по врагам
             for (EnemyPlane &e : enemies) {
                 if (!e.alive) continue;
                 float dist = sqrt(pow(r.x - e.x, 2) + pow(r.y - e.y, 2));
@@ -984,7 +986,6 @@ private slots:
 
             if (hit) continue;
 
-            // проверка попадания по наземным целям (если есть target)
             if (r.target && r.target->alive) {
                 float dist = sqrt(pow(r.x - r.target->x, 2) + pow(r.y - r.target->y, 2));
                 if (dist < 20) {
@@ -1000,7 +1001,6 @@ private slots:
                 }
             }
 
-            // проверка по всем наземным целям (если target не задан, но это ракета по врагу)
             if (!r.target) {
                 for (Target &t : targets) {
                     if (!t.alive) continue;
@@ -1027,13 +1027,11 @@ private slots:
             }
         }
 
-        // анимация попаданий
         for (int i = hitMarkers.size() - 1; i >= 0; i--) {
             hitMarkers[i].timer--;
             if (hitMarkers[i].timer <= 0) hitMarkers.removeAt(i);
         }
 
-        // === ПОСАДКА И ЗАПРАВКА ===
         float distToAirfield = sqrt(pow(posX - airfield.x, 2) + pow(posY - airfield.y, 2));
         bool wasOnGround = onGround;
         onGround = (distToAirfield < 600 && velocity.length() < 3.0f);
@@ -1051,8 +1049,7 @@ private slots:
                 targets.append(Target(x, y, (rand() % 2 == 0) ? 0 : 2));
             }
 
-            // новые враги появляются
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 20; i++) {
                 float x = 3000 + rand() % 10000;
                 float y = 3000 + rand() % 10000;
                 enemies.append(EnemyPlane(x, y, rand() % 2));
@@ -1061,14 +1058,12 @@ private slots:
 
         if (wasOnGround && velocity.length() > 3.0f) onGround = false;
 
-        // след
         if (!onGround) {
             trail.push_back(QPointF(posX, posY));
             if (trail.size() > 300) trail.removeFirst();
         }
     }
 
-    // === СБРОС БОМБЫ ===
     void dropBomb() {
         bombs--;
         for (Target &t : targets) {
@@ -1091,7 +1086,6 @@ private slots:
         }
     }
 
-    // === СОХРАНЕНИЕ И ЗАГРУЗКА ДЕНЕГ ===
     void loadMoney() {
         QFile file("money.txt");
         if (file.open(QIODevice::ReadOnly)) {
@@ -1111,7 +1105,6 @@ private slots:
     }
 
 private:
-    // === ПЕРЕМЕННЫЕ ИГРОКА ===
     float posX, posY;
     QVector2D velocity;
     float angle, thrust, fuel;
@@ -1122,7 +1115,6 @@ private:
     int selectedSkin, currentPlane;
     QList<QPointF> trail;
 
-    // === СПРАЙТЫ ===
     QPixmap su27Sprite;
     QPixmap su30Sprite;
     QPixmap su25Sprite;
@@ -1135,11 +1127,9 @@ private:
     QPixmap grassTexture;
     QPixmap asphaltTexture;
 
-    // СПРАЙТЫ ДЛЯ ВРАГОВ
-    QPixmap enemyMigSprite;
-    QPixmap enemyF16Sprite;
+    QPixmap eurofighterSprite;
+    QPixmap f18Sprite;
 
-    // === ИГРОВЫЕ ОБЪЕКТЫ ===
     QVector<Target> targets;
     QVector<Rocket> rockets;
     QVector<Rocket> enemyRockets;
@@ -1149,7 +1139,6 @@ private:
     QVector<GrassBlade> grass;
     QVector<QPointF> trees;
 
-    // КОНТЕЙНЕРЫ ДЛЯ ВРАГОВ
     QVector<EnemyPlane> enemies;
 
     Airfield airfield;
