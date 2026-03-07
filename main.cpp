@@ -206,7 +206,7 @@ public:
         skins.append({"МиГ-29", 1000, 3, 10, 30, 3.0f, false, ":/plane7.png", -58, -5, 5});
         skins.append({"СУ-30", 2000, 3, 10, 30, 3.0f, false, ":/plane1.png", -61, -5, 5});
         skins.append({"СУ-33", 2500, 3, 15, 30, 3.5f, false, ":/plane6.png", -61, -5, 5});
-        skins.append({"СУ-34", 3000, 3, 15, 40, 2.5f, false, ":/plane2.png", -75, -5, 5});
+        skins.append({"СУ-34", 3000, 3, 15, 40, 2.5f, false, ":/plane2.png", -67, -5, 5});
         skins.append({"СУ-25", 3500, 2, 25, 50, 2.5f, false, ":/plane4.png", -37, -5, 5});
         skins.append({"СУ-57", 5000, 5, 20, 60, 4.0f, false, ":/plane3.png", -55, -6, 6});
         skins.append({"МиГ-31", 10000, 10, 20, 70, 3.0f, false, ":/plane5.png", -75, -3, 3});
