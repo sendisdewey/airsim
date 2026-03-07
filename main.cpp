@@ -124,6 +124,11 @@ public:
             su27Sprite = su27Sprite.scaled(90, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
+        mig29Sprite.load(":/plane7.png");
+        if (!mig29Sprite.isNull()) {
+            mig29Sprite = mig29Sprite.scaled(110, 110, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
         su30Sprite.load(":/plane1.png");
         if (!su30Sprite.isNull()) {
             su30Sprite = su30Sprite.scaled(90, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -198,7 +203,8 @@ public:
 
         // магазин
         skins.append({"СУ-27", 0, 2, 0, 0, 3.0f, true, ":/plane.png", -58, -5, 5});
-        skins.append({"СУ-30", 2000, 3, 10, 0, 3.0f, false, ":/plane1.png", -61, -5, 5});
+        skins.append({"МиГ-29", 1000, 3, 10, 30, 3.0f, false, ":/plane7.png", -58, -5, 5});
+        skins.append({"СУ-30", 2000, 3, 10, 30, 3.0f, false, ":/plane1.png", -61, -5, 5});
         skins.append({"СУ-33", 2500, 3, 15, 30, 3.5f, false, ":/plane6.png", -61, -5, 5});
         skins.append({"СУ-34", 3000, 3, 15, 40, 2.5f, false, ":/plane2.png", -75, -5, 5});
         skins.append({"СУ-25", 3500, 2, 25, 50, 2.5f, false, ":/plane4.png", -37, -5, 5});
@@ -418,22 +424,25 @@ protected:
 
         QPixmap *currentSprite = &su27Sprite;
 
-        if (currentPlane == 1 && !su30Sprite.isNull()) {
+        if (currentPlane == 1 && !mig29Sprite.isNull()) {
+            currentSprite = &mig29Sprite;
+        }
+        else if (currentPlane == 2 && !su30Sprite.isNull()) {
             currentSprite = &su30Sprite;
         }
-        else if (currentPlane == 2 && !su33Sprite.isNull()) {
+        else if (currentPlane == 3 && !su33Sprite.isNull()) {
             currentSprite = &su33Sprite;
         }
-        else if (currentPlane == 3 && !su34Sprite.isNull()) {
+        else if (currentPlane == 4 && !su34Sprite.isNull()) {
             currentSprite = &su34Sprite;
         }
-        else if (currentPlane == 4 && !su25Sprite.isNull()) {
+        else if (currentPlane == 5 && !su25Sprite.isNull()) {
             currentSprite = &su25Sprite;
         }
-        else if (currentPlane == 5 && !su57Sprite.isNull()) {
+        else if (currentPlane == 6 && !su57Sprite.isNull()) {
             currentSprite = &su57Sprite;
         }
-        else if (currentPlane == 6 && !mig31Sprite.isNull()) {
+        else if (currentPlane == 7 && !mig31Sprite.isNull()) {
             currentSprite = &mig31Sprite;
         }
 
@@ -1311,7 +1320,7 @@ private:
     int hydraulicTimer;
     float forsageAlpha;
 
-    QPixmap su27Sprite, su30Sprite, su33Sprite, su25Sprite, su34Sprite, su57Sprite, mig31Sprite;
+    QPixmap su27Sprite, su30Sprite, su33Sprite, su25Sprite, su34Sprite, su57Sprite, mig31Sprite, mig29Sprite;
     QPixmap tankSprite, rocketSprite, AASprite, treeSprite, grassTexture, asphaltTexture;
     QPixmap eurofighterSprite, f18Sprite;
     QPixmap forsageSprite;
