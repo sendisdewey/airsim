@@ -45,18 +45,6 @@ Top-down military flight simulator. Buy planes, destroy tanks and AA, earn money
 - Landing at airfield: +$50
 - Missile cost: -$10
 
-### Aircraft Shop
-
-| Plane | Price | Speed Bonus | Armor Bonus | Bomb Bonus | Turn Speed |
-|-------|-------|-------------|-------------|------------|------------|
-| SU-27 | $0 | +2 | +0 | +0 | 3.0 |
-| SU-30 | $2000 | +3 | +10 | +0 | 3.0 |
-| SU-33 | $2500 | +3 | +15 | +30 | 3.5 |
-| SU-34 | $3000 | +3 | +15 | +40 | 2.5 |
-| SU-25 | $3500 | +2 | +25 | +50 | 2.0 |
-| SU-57 | $5000 | +5 | +20 | +60 | 4.0 |
-| MiG-31 | $10000 | +10 | +20 | +70 | 3.0 |
-
 ### Weapons
 
 - **Bombs** - Area damage, destroy everything in radius
