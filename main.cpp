@@ -112,8 +112,10 @@ public:
           forsageAlpha(0.0f)
     {
         resize(1280, 720);
-        setMinimumSize(800, 600);
+        setMinimumSize(1000, 800);
         setWindowTitle("AirSim");
+
+        showFullScreen();
 
         srand(time(nullptr));
 
@@ -153,8 +155,8 @@ public:
 
         grassTexture = loadSafe(":/grass_texture.png", 128, 128);
         asphaltTexture = loadSafe(":/asphalt.png", 128, 128);
-        tankSprite = loadSafe(":/tank.png", 50, 40);
-        AASprite = loadSafe(":/AA.png", 50, 50);
+        tankSprite = loadSafe(":/tank.png", 90, 90);
+        AASprite = loadSafe(":/AA.png", 90, 90);
         treeSprite = loadSafe(":/tree.png", 80, 80);
         rocketSprite = loadSafe(":/rocket.png", 40, 30);
 
@@ -162,15 +164,15 @@ public:
         plowedTexture = loadSafe(":/plowed.png", CHUNK_SIZE, CHUNK_SIZE);
         sunflowerTexture = loadSafe(":/sunflower.png", CHUNK_SIZE, CHUNK_SIZE);
 
-        // --- АНГАР (МиГ-29 добавлен вторым) ---
-        skins.append({"СУ-27", 0, 2, 0, 0, 3.0f, true, ":/plane.png", -58, -5, 5});       // 0
-        skins.append({"МиГ-29", 1500, 3, 5, 20, 3.5f, false, ":/plane7.png", -55, -5, 5}); // 1
-        skins.append({"СУ-30", 2000, 3, 10, 0, 3.0f, false, ":/plane1.png", -61, -5, 5});  // 2
-        skins.append({"СУ-33", 2500, 3, 15, 30, 3.5f, false, ":/plane6.png", -61, -5, 5}); // 3
-        skins.append({"СУ-34", 3000, 3, 15, 40, 2.5f, false, ":/plane2.png", -75, -5, 5}); // 4
-        skins.append({"СУ-25", 3500, 2, 25, 50, 2.5f, false, ":/plane4.png", -37, -5, 5}); // 5
-        skins.append({"СУ-57", 5000, 5, 20, 60, 4.0f, false, ":/plane3.png", -55, -6, 6}); // 6
-        skins.append({"МиГ-31", 10000, 10, 20, 70, 3.0f, false, ":/plane5.png", -75, -3, 3}); // 7
+        // --- АНГАР ---
+        skins.append({"Su-27", 0, 4, 0, 0, 3.0f, true, ":/plane.png", -58, -5, 5});       // 0
+        skins.append({"MiG-29", 1500, 4, 5, 20, 3.5f, false, ":/plane7.png", -55, -5, 5}); // 1
+        skins.append({"Su-30", 2000, 4, 10, 25, 3.0f, false, ":/plane1.png", -61, -5, 5});  // 2
+        skins.append({"Su-33", 2500, 4, 15, 30, 3.5f, false, ":/plane6.png", -61, -5, 5}); // 3
+        skins.append({"Su-34", 3000, 5, 15, 40, 2.5f, false, ":/plane2.png", -75, -5, 5}); // 4
+        skins.append({"Su-25", 3500, 5, 25, 50, 2.5f, false, ":/plane4.png", -37, -5, 5}); // 5
+        skins.append({"Su-57", 4000, 7, 20, 60, 4.0f, false, ":/plane3.png", -55, -6, 6}); // 6
+        skins.append({"MiG-31", 4500, 10, 20, 70, 3.0f, false, ":/plane5.png", -75, -3, 3}); // 7
 
         loadMoney();
         loadHangar();
@@ -186,28 +188,102 @@ public:
         }
 
         // Генерация деревьев
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 5000; i++) {
             trees.append(QPointF(1000 + rand() % 126000, 1000 + rand() % 126000));
         }
 
-        // Генерация больших полей
-        int numFields = 40;
+                // --- ГЕНЕРАЦИЯ ПОЛЕЙ БЕЗ НАЛОЖЕНИЙ ---
+        int numFields = 400; // Количество полей (чуть меньше, чтобы было место для маневра)
+        int maxAttempts = 200; // Максимум попыток найти место для одного поля
+
         for (int i = 0; i < numFields; i++) {
-            float x = 1000 + rand() % 120000;
-            float y = 1000 + rand() % 120000;
+            FieldZone newZone;
+            bool placed = false;
 
-            float w = 1500 + (rand() % 2500);
-            float h = 1500 + (rand() % 2500);
+            // Пытаемся найти свободное место
+            for (int attempt = 0; attempt < maxAttempts; attempt++) {
+                float x = 2000 + rand() % 124000;
+                float y = 2000 + rand() % 124000;
+                float w = 2000 + (rand() % 3000);
+                float h = 2000 + (rand() % 3000);
 
-            FieldZone zone;
-            zone.rect = QRectF(x, y, w, h);
+                QRectF candidateRect(x, y, w, h);
 
-            int type = rand() % 3;
-            if (type == 0) zone.texture = &cornTexture;
-            else if (type == 1) zone.texture = &plowedTexture;
-            else zone.texture = &sunflowerTexture;
+                // Добавляем отступ (padding), чтобы поля не касались краями
+                // Увеличиваем прямоугольник проверки на 400 пикселей со всех сторон
+                QRectF checkRect = candidateRect.adjusted(-400, -400, 400, 400);
 
-            fieldZones.append(zone);
+                bool overlap = false;
+                // Проверяем пересечение со всеми уже созданными полями
+                for (const FieldZone &existing : fieldZones) {
+                    if (checkRect.intersects(existing.rect)) {
+                        overlap = true;
+                        break;
+                    }
+                }
+
+                // Также проверяем, чтобы поле не налезло на аэродром
+                QRectF airfieldRect(airfield.x - 500, airfield.y - 200, 1600, 400);
+                if (checkRect.intersects(airfieldRect)) {
+                    overlap = true;
+                }
+
+                if (!overlap) {
+                    // Место свободно! Сохраняем параметры и выходим из цикла попыток
+                    newZone.rect = candidateRect;
+                    int type = rand() % 3;
+                    if (type == 0) newZone.texture = &cornTexture;
+                    else if (type == 1) newZone.texture = &plowedTexture;
+                    else newZone.texture = &sunflowerTexture;
+
+                    placed = true;
+                    break;
+                }
+            }
+
+            // Если место найдено, добавляем поле и сажаем деревья
+            if (placed) {
+                fieldZones.append(newZone);
+
+                // --- ГЕНЕРАЦИЯ ЛЕСОПОЛОСЫ ВОКРУГ ---
+                int treesPerSide = 90;
+                float offsetRange = 15.0f;
+                float distanceFromEdge = 1.0f;
+                float x = newZone.rect.x();
+                float y = newZone.rect.y();
+                float w = newZone.rect.width();
+                float h = newZone.rect.height();
+
+                for (int side = 0; side < 4; side++) {
+                    for (int t = 0; t < treesPerSide; t++) {
+                        float tx, ty;
+                        if (side == 0) { tx = x + (w * ((float)t / treesPerSide)); ty = y - distanceFromEdge; }
+                        else if (side == 1) { tx = x + w + distanceFromEdge; ty = y + (h * ((float)t / treesPerSide)); }
+                        else if (side == 2) { tx = x + (w * ((float)t / treesPerSide)); ty = y + h + distanceFromEdge; }
+                        else { tx = x - distanceFromEdge; ty = y + (h * ((float)t / treesPerSide)); }
+
+                        tx += ((rand() % (int)(offsetRange * 2)) - offsetRange);
+                        ty += ((rand() % (int)(offsetRange * 2)) - offsetRange);
+
+                        // Проверка на аэродром для деревьев
+                        bool onRunway = (tx > airfield.x - 400 && tx < airfield.x + 1300 &&
+                                         ty > airfield.y - 100 && ty < airfield.y + 100);
+                        if (!onRunway) trees.append(QPointF(tx, ty));
+                    }
+                }
+
+                // Деревья в углах
+                for(int k=0; k<4; k++) {
+                    float cornerX = (k==0 || k==3) ? x : x + w;
+                    float cornerY = (k==0 || k==1) ? y : y + h;
+                    float rx = cornerX + ((rand() % 400) - 200);
+                    float ry = cornerY + ((rand() % 400) - 200);
+                    if (!(rx > airfield.x - 400 && rx < airfield.x + 1300 &&
+                          ry > airfield.y - 100 && ry < airfield.y + 100)) {
+                        trees.append(QPointF(rx, ry));
+                    }
+                }
+            }
         }
 
         QTimer *timer = new QTimer(this);
@@ -487,36 +563,58 @@ protected:
         p.drawText(-5, -35, "А"); p.restore();
     }
 
-    void drawRadar(QPainter &p) {
-        p.save(); p.translate(width() - 180, 80);
-        p.setBrush(QColor(0, 30, 0, 200)); p.setPen(QPen(Qt::green, 2));
-        p.drawEllipse(-60, -60, 120, 120);
-        p.setPen(QPen(Qt::green, 1, Qt::DotLine));
-        p.drawLine(-60, 0, 60, 0); p.drawLine(0, -60, 0, 60);
-        static float scan = 0; scan += 0.05f; if (scan > 6.28f) scan -= 6.28f;
-        p.setPen(QPen(Qt::green, 2));
-        p.drawLine(0, 0, cos(scan) * 55, sin(scan) * 55);
+        void drawRadar(QPainter &p) {
+        p.save();
+        // Сдвигаем радар чуть дальше от края, так как он стал больше
+        p.translate(width() - 220, 120);
 
-        float rSq = 70000.0f * 70000.0f, eSq = 20000.0f * 20000.0f;
+        // Фон радара (увеличен в 2 раза: было 60, стало 120)
+        p.setBrush(QColor(0, 30, 0, 200));
+        p.setPen(QPen(Qt::green, 3)); // Линия рамки тоже чуть толще
+        p.drawEllipse(-120, -120, 240, 240);
+
+
+        // Стрелка сканера
+        static float scan = 0;
+        scan += 0.05f;
+        if (scan > 6.28f) scan -= 6.28f;
+
+        p.setPen(QPen(Qt::green, 1));
+        p.drawLine(0, 0, cos(scan) * 110, sin(scan) * 110);
+
+        float rSq = 70000.0f * 70000.0f;
+        float eSq = 140000.0f * 70000.0f;   // Враги видны ближе, но тоже радиус увеличен
+
+        // Отрисовка целей (Танки/ПВО)
         for (const Target &t : targets) {
             if (!t.alive) continue;
             float dx = t.x - posX, dy = t.y - posY;
             if (dx*dx + dy*dy < rSq) {
-                float s = 50.0f / 70000.0f;
-                p.setBrush(t.type == 2 ? Qt::red : Qt::yellow); p.setPen(Qt::NoPen);
-                p.drawEllipse(dx*s - 3, dy*s - 3, 6, 6);
+                float s = 110.0f / 70000.0f;
+
+                p.setBrush(t.type == 2 ? Qt::red : Qt::yellow);
+                p.setPen(Qt::NoPen);
+                p.drawEllipse(dx*s - 2, dy*s - 2, 4, 4);
             }
         }
+
+        // Отрисовка врагов
         for (const EnemyPlane &e : enemies) {
             if (!e.alive) continue;
             float dx = e.x - posX, dy = e.y - posY;
             if (dx*dx + dy*dy < eSq) {
-                float s = 50.0f / 20000.0f;
-                p.setBrush(Qt::magenta); p.setPen(Qt::NoPen);
-                p.drawEllipse(dx*s - 3, dy*s - 3, 6, 6);
+                float s = 110.0f / 70000.0f;
+                p.setBrush(Qt::magenta);
+                p.setPen(Qt::NoPen);
+                p.drawEllipse(dx*s - 2, dy*s - 2, 4, 4);
             }
         }
-        p.setBrush(Qt::cyan); p.drawEllipse(-4, -4, 8, 8); p.restore();
+
+        // Игрок в центре (стал крупнее)
+        p.setBrush(Qt::cyan);
+        p.drawEllipse(-2, -2, 4, 4);
+
+        p.restore();
     }
 
     void drawShop(QPainter &p) {
@@ -543,9 +641,9 @@ protected:
             p.drawText(240, y - 10, skins[i].name);
             p.setFont(QFont("Arial", 11));
 
-            QString stats = "+" + QString::number(skins[i].speedBonus) + " скор\n" +
-                            "+" + QString::number(skins[i].armorBonus) + " броня\n" +
-                            "+" + QString::number(skins[i].bombBonus) + " бомб\n" +
+            QString stats = "+" + QString::number(skins[i].speedBonus) + " скор | \n" +
+                            "+" + QString::number(skins[i].armorBonus) + " броня | \n" +
+                            "+" + QString::number(skins[i].bombBonus) + " бомб | \n" +
                             QString::number(skins[i].turnSpeed) + " вращ";
 
             p.drawText(240, y + 30, stats);
@@ -563,6 +661,17 @@ protected:
     }
 
     void keyPressEvent(QKeyEvent *e) override {
+
+        if (e->key() == Qt::Key_F11) {
+            if (isFullScreen()) {
+                showNormal();
+                resize(1280, 720);
+            } else {
+                showFullScreen();
+            }
+            return;
+        }
+
         if (e->key() == Qt::Key_Escape) qApp->quit();
 
         if (shopOpen) {
@@ -634,7 +743,7 @@ private slots:
     void updateGame() {
         if (shopOpen) return;
 
-        if (thrust > 3.0f && !onGround) forsageAlpha = qMin(forsageAlpha + 0.05f, 1.0f);
+        if (thrust > 10.0f && !onGround) forsageAlpha = qMin(forsageAlpha + 0.05f, 1.0f);
         else forsageAlpha = qMax(forsageAlpha - 0.05f, 0.0f);
 
         if (armor <= 30 && armor > 0 && !hydraulicFailure) { hydraulicFailure = true; hydraulicTimer = 120; }
@@ -835,8 +944,8 @@ private slots:
     }
 
     void resetPlayer(int ab) {
-        posX = 4000; posY = 4000; armor = 100 + ab;
-        money = 0; bombs = 50; fuel = 100;
+        posX = 63850, posY = 64010, armor = 100 + ab;
+        bombs = 50 + skins[currentPlane].bombBonus; fuel = 100;
         hydraulicFailure = false; saveMoney();
     }
 
