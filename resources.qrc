@@ -15,6 +15,9 @@
     <file>tree.png</file>
     <file>rocket.png</file>
     <file>grass_texture.png</file>
+    <file>corn.png</file>
+    <file>plowed.png</file>
+    <file>sunflower.png</file>
     <file>asphalt.png</file>
     <file>forsage.png</file>
 </qresource>
